@@ -102,3 +102,12 @@ export function batchMoveCategory(ids: string[], categoryId?: string) {
     body: payload,
   })
 }
+
+export function batchMoveSeriesArticles(ids: string[], seriesId?: string) {
+  const payload: { ids: string[]; seriesId?: string } = { ids }
+  if (seriesId) payload.seriesId = seriesId
+  return httpRequest<{ affected: number }>('/articles/batch/move-series', {
+    method: 'POST',
+    body: payload,
+  })
+}

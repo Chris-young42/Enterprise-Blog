@@ -6,14 +6,24 @@ import { ReviewMessageBoardDto } from './dto/review-message-board.dto';
 import { BatchReviewMessageBoardDto } from './dto/batch-review-message-board.dto';
 import { BatchRemoveMessageBoardDto } from './dto/batch-remove-message-board.dto';
 import { ListMessageBoardDto } from './dto/list-message-board.dto';
+import { SensitiveWordsService } from '../sensitive-words/sensitive-words.service';
+import { SecurityService } from '../security/security.service';
 
 type AuthUser = {
   sub: string;
 };
 
+type RequestContext = {
+  ip?: string;
+};
+
 @Injectable()
 export class MessageBoardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sensitiveWordsService: SensitiveWordsService,
+    private readonly securityService: SecurityService,
+  ) {}
 
   async listPublic(query: ListMessageBoardDto) {
     const pageRaw = Number(query.page ?? 1);
@@ -62,7 +72,9 @@ export class MessageBoardService {
     }));
   }
 
-  async create(user: AuthUser | null, dto: CreateMessageBoardDto) {
+  async create(user: AuthUser | null, dto: CreateMessageBoardDto, context: RequestContext) {
+    await this.securityService.assertIpNotBanned(context.ip);
+    await this.securityService.assertTextNotBlocked(dto.content);
     return this.prisma.messageBoard.create({
       data: {
         userId: user?.sub ?? null,
@@ -111,6 +123,9 @@ export class MessageBoardService {
   }
 
   private async readSensitiveWords() {
+    const words = await this.sensitiveWordsService.readEnabledWords();
+    if (words.length > 0) return words;
+
     const row = await this.prisma.siteConfig.findFirst({
       where: { key: 'comment_policy', deletedAt: null },
       select: { value: true },

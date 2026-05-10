@@ -7,4 +7,10 @@ export class LoginDto {
   @IsString()
   @MinLength(8)
   password!: string;
+
+  @IsString()
+  captchaToken!: string;
+
+  @IsString()
+  captchaAnswer!: string;
 }

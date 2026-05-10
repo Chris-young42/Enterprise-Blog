@@ -32,6 +32,86 @@ pnpm install
 pnpm dev
 ```
 
+最小必填环境变量清单见：
+- [docs/env-min-required.md](./docs/env-min-required.md)
+
+### 一键开发调试脚本（前端 + 本机 Nest + Docker MySQL/MinIO/Redis）
+
+Windows PowerShell：
+
+```powershell
+pnpm dev:env
+```
+
+首次初始化数据库（执行 migrate + seed）：
+
+```powershell
+pnpm dev:env:init
+```
+
+macOS/Linux Bash：
+
+```bash
+pnpm dev:env:sh
+```
+
+首次初始化数据库（执行 migrate + seed）：
+
+```bash
+pnpm dev:env:sh:init
+```
+
+说明：
+- 脚本会启动 `mysql`、`minio` 与 `redis` 容器。
+- 脚本会先执行 `pnpm lint`，通过后再启动本机开发服务。
+- 脚本最后执行 `pnpm dev`，并行启动前端与本机后端。
+
+### 本地开发（Docker Compose：MySQL + MinIO + Redis）
+
+1. 启动开发基础服务（MySQL + MinIO + Redis）：
+
+```bash
+pnpm db:up
+```
+
+2. 初始化后端环境变量（首次，非容器本地开发时使用）：
+
+```bash
+cp apps/api/.env.example apps/api/.env
+```
+
+3. 初始化数据库结构和种子数据：
+
+```bash
+pnpm db:init
+```
+
+4. 启动前后端开发服务（本地）：
+
+```bash
+pnpm dev
+```
+
+5. 预览地址：
+
+- 前端：`http://localhost:5173`
+- 后端：`http://localhost:3000/api/v1`
+- Swagger：`http://localhost:3000/api/docs`
+- MinIO API：`http://localhost:9000`
+- MinIO Console：`http://localhost:9001`
+- Redis：`127.0.0.1:6379`
+
+### 数据持久化目录（开发环境）
+
+`docker-compose.yml` 已配置将容器数据强制落盘到项目根目录 `data/` 下：
+
+- MySQL 数据目录：`./data/mysql` -> `/var/lib/mysql`
+- MinIO 对象存储目录：`./data/minio` -> `/data`
+- Redis 数据目录：`./data/redis` -> `/data`
+
+这样即使执行容器重建或重启，数据库数据与对象文件仍会保留在项目本地目录中。
+`data/mysql` 与 `data/minio` 目录在首次启动时会由 Docker 自动创建。
+
 常用命令：
 
 ```bash
@@ -83,3 +163,5 @@ pnpm test
 - `S3_SECRET_ACCESS_KEY`：S3 SK
 - `S3_SESSION_TOKEN`：临时令牌（可选）
 - `S3_FORCE_PATH_STYLE`：`true/false`，默认 `false`
+
+补充：本地 MySQL 开发库默认地址为 `127.0.0.1:3306`，数据库名 `enterprise_blog`，账号 `root`，密码 `root`（见根目录 `docker-compose.yml`）。

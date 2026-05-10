@@ -1,6 +1,6 @@
-﻿import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UpsertSiteConfigDto } from './dto/upsert-site-config.dto';
+import { UpsertAppearanceConfigDto, UpsertSiteConfigDto } from './dto/upsert-site-config.dto';
 
 @Injectable()
 export class SiteConfigsService {
@@ -52,8 +52,36 @@ export class SiteConfigsService {
     });
   }
 
+  async upsertSideNav(items: Array<{ label: string; href: string }>) {
+    return this.upsert({
+      key: 'site.side-nav',
+      value: items,
+      description: 'front site side navigation items',
+    });
+  }
+
+  async upsertAppearance(value: UpsertAppearanceConfigDto) {
+    return this.upsert({
+      key: 'site.appearance',
+      value,
+      description: 'front site appearance settings',
+    });
+  }
+
   async getNav() {
     const row = await this.getByKey('site.nav');
+    if (!row) return null;
+    return row.value;
+  }
+
+  async getSideNav() {
+    const row = await this.getByKey('site.side-nav');
+    if (!row) return null;
+    return row.value;
+  }
+
+  async getAppearance() {
+    const row = await this.getByKey('site.appearance');
     if (!row) return null;
     return row.value;
   }

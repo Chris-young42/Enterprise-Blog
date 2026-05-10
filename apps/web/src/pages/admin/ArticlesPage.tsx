@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   batchDeleteArticles,
+  batchMoveSeriesArticles,
   batchMoveCategory,
   batchSetPinned,
   batchSetRecommended,
@@ -13,6 +14,12 @@ import {
   saveDraftArticle,
   scheduleArticle,
 } from '@/api/articles'
+import {
+  assignArticle,
+  batchSetArticleStatus,
+  batchSetVisibility,
+  fetchArticleAssignments,
+} from '@/api/article-collab'
 import { fetchCategories } from '@/api/content-taxonomy'
 import type { ArticleItem } from '@/types/api'
 import type { CreateArticleInput } from '@/types/articles'
@@ -28,6 +35,8 @@ export function ArticlesPage() {
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [batchCategoryId, setBatchCategoryId] = useState('')
+  const [batchSeriesId, setBatchSeriesId] = useState('')
+  const [assigneeId, setAssigneeId] = useState('')
 
   const listQuery = useQuery({
     queryKey: ['admin', 'articles', page, keyword],
@@ -56,6 +65,11 @@ export function ArticlesPage() {
   const categoriesQuery = useQuery({
     queryKey: ['admin', 'categories', 'for-batch-move'],
     queryFn: fetchCategories,
+  })
+
+  const assignmentsQuery = useQuery({
+    queryKey: ['admin', 'articles', 'assignments'],
+    queryFn: () => fetchArticleAssignments(),
   })
 
   const createMutation = useMutation({
@@ -103,6 +117,30 @@ export function ArticlesPage() {
     mutationFn: ({ ids, categoryId }: { ids: string[]; categoryId?: string }) =>
       batchMoveCategory(ids, categoryId),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['admin', 'articles'] }),
+  })
+
+  const batchStatusMutation = useMutation({
+    mutationFn: ({ ids, status }: { ids: string[]; status: 'DRAFT' | 'PUBLISHED' | 'SCHEDULED' | 'ARCHIVED' }) =>
+      batchSetArticleStatus(ids, status),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['admin', 'articles'] }),
+  })
+
+  const batchSeriesMutation = useMutation({
+    mutationFn: ({ ids, seriesId }: { ids: string[]; seriesId?: string }) =>
+      batchMoveSeriesArticles(ids, seriesId),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['admin', 'articles'] }),
+  })
+
+  const batchVisibilityMutation = useMutation({
+    mutationFn: ({ ids, visibility }: { ids: string[]; visibility: 'PUBLIC' | 'FOLLOWER' | 'LOGGED_IN' | 'PRIVATE' | 'PASSWORD' }) =>
+      batchSetVisibility(ids, visibility),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['admin', 'articles'] }),
+  })
+
+  const assignMutation = useMutation({
+    mutationFn: ({ id, userId }: { id: string; userId: string }) =>
+      assignArticle(id, { assigneeId: userId, status: 'TODO' }),
+    onSuccess: () => void assignmentsQuery.refetch(),
   })
 
   const items = listQuery.data?.items ?? []
@@ -186,6 +224,26 @@ export function ArticlesPage() {
       ids: selectedIds,
       categoryId: trimmedCategoryId,
     })
+  }
+
+  const performBatchStatus = (status: 'DRAFT' | 'PUBLISHED' | 'SCHEDULED' | 'ARCHIVED') => {
+    if (selectedIds.length === 0) return
+    void batchStatusMutation.mutateAsync({ ids: selectedIds, status })
+  }
+
+  const performBatchMoveSeries = () => {
+    if (selectedIds.length === 0) return
+    const trimmed = batchSeriesId.trim()
+    if (!trimmed) {
+      void batchSeriesMutation.mutateAsync({ ids: selectedIds })
+      return
+    }
+    void batchSeriesMutation.mutateAsync({ ids: selectedIds, seriesId: trimmed })
+  }
+
+  const performBatchVisibility = (visibility: 'PUBLIC' | 'FOLLOWER' | 'LOGGED_IN' | 'PRIVATE' | 'PASSWORD') => {
+    if (selectedIds.length === 0) return
+    void batchVisibilityMutation.mutateAsync({ ids: selectedIds, visibility })
   }
 
   return (
@@ -286,6 +344,27 @@ export function ArticlesPage() {
               <Button size="sm" variant="outline" onClick={performBatchMoveCategory}>
                 批量迁移分类
               </Button>
+              <Input
+                value={batchSeriesId}
+                onChange={(event) => setBatchSeriesId(event.target.value)}
+                placeholder="seriesId"
+                className="h-9 w-44"
+              />
+              <Button size="sm" variant="outline" onClick={performBatchMoveSeries}>
+                批量迁移系列
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => performBatchStatus('DRAFT')}>
+                批量转草稿
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => performBatchStatus('PUBLISHED')}>
+                批量发布
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => performBatchVisibility('PUBLIC')}>
+                批量公开
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => performBatchVisibility('PRIVATE')}>
+                批量私密
+              </Button>
               <Button size="sm" variant="outline" onClick={performBatchDelete}>
                 批量删除
               </Button>
@@ -316,6 +395,22 @@ export function ArticlesPage() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <Input
+                    value={assigneeId}
+                    onChange={(event) => setAssigneeId(event.target.value)}
+                    placeholder="协作者 userId"
+                    className="h-8 w-40 text-xs"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (!assigneeId.trim()) return
+                      void assignMutation.mutateAsync({ id: item.id, userId: assigneeId.trim() })
+                    }}
+                  >
+                    分配协作
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => triggerDraft(item)}>
                     草稿
                   </Button>
@@ -350,6 +445,22 @@ export function ArticlesPage() {
               下一页
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-white/60 bg-white/85 dark:border-slate-800/80 dark:bg-slate-950/80">
+        <CardHeader>
+          <CardTitle>协作任务列表</CardTitle>
+          <CardDescription>多作者分工状态（TODO / IN_PROGRESS / REVIEW / DONE）</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-xs">
+          {(assignmentsQuery.data?.items ?? []).map((assignment) => (
+            <div key={assignment.id} className="rounded border border-slate-200 px-3 py-2 dark:border-slate-800">
+              <p className="font-medium">[{assignment.status}] {assignment.article.title}</p>
+              <p>assignee: {assignment.assignee.nickname ?? assignment.assignee.username}</p>
+              <p>assigner: {assignment.assigner?.nickname ?? assignment.assigner?.username ?? '-'}</p>
+            </div>
+          ))}
         </CardContent>
       </Card>
 

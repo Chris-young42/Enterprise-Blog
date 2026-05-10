@@ -10,6 +10,9 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma, ReviewStatus } from '@prisma/client';
 import { createHmac, randomInt } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { SensitiveWordsService } from '../sensitive-words/sensitive-words.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { SecurityService } from '../security/security.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { ListCommentsDto } from './dto/list-comments.dto';
 import { ReviewCommentDto } from './dto/review-comment.dto';
@@ -50,6 +53,9 @@ export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly sensitiveWordsService: SensitiveWordsService,
+    private readonly notificationsService: NotificationsService,
+    private readonly securityService: SecurityService,
   ) {}
 
   async getPolicy() {
@@ -159,6 +165,8 @@ export class CommentsService {
     dto: CreateCommentDto,
     context: RequestContext,
   ) {
+    await this.securityService.assertIpNotBanned(context.ip);
+
     const policy = await this.readPolicy();
     if (!policy.guestCommentEnabled && !user) {
       throw new ForbiddenException('guest comments disabled');
@@ -197,6 +205,7 @@ export class CommentsService {
     if (!normalized) {
       throw new BadRequestException('comment content required');
     }
+    await this.securityService.assertTextNotBlocked(normalized);
 
     await this.assertRateLimit(user, context, policy);
 
@@ -230,30 +239,15 @@ export class CommentsService {
         });
       }
 
-      await tx.notification.create({
-        data: {
-          userId: article.authorId,
-          type: 'COMMENT',
-          channel: 'IN_APP',
-          title: parent ? '你的文章有新回复' : '你的文章有新评论',
-          content: normalized.slice(0, 120),
-          sentAt: new Date(),
-        },
-      });
-      if (policy.emailNotificationEnabled && article.author.email) {
-        await tx.notification.create({
-          data: {
-            userId: article.authorId,
-            type: 'COMMENT',
-            channel: 'EMAIL',
-            title: parent ? '你的文章有新回复' : '你的文章有新评论',
-            content: `${article.author.nickname ?? article.author.username}: ${normalized.slice(0, 120)}`,
-            sentAt: new Date(),
-          },
-        });
-      }
-
       return row;
+    });
+
+    await this.notificationsService.notifyCommentAuthor({
+      userId: article.authorId,
+      recipientEmail: article.author.email,
+      title: parent ? '你的文章有新回复' : '你的文章有新评论',
+      content: `${article.author.nickname ?? article.author.username}: ${normalized.slice(0, 120)}`,
+      emailEnabled: policy.emailNotificationEnabled,
     });
 
     return this.getDetail(created.id);
@@ -564,9 +558,7 @@ export class CommentsService {
           ? value.autoReviewEnabled
           : defaultPolicy().autoReviewEnabled,
       reviewMode: value.reviewMode === 'MIXED' ? 'MIXED' : 'MANUAL',
-      sensitiveWords: Array.isArray(value.sensitiveWords)
-        ? value.sensitiveWords.filter((item) => typeof item === 'string')
-        : [],
+      sensitiveWords: await this.readSensitiveWordsFromPolicyOrLibrary(value.sensitiveWords),
       blockedUserIds: Array.isArray(value.blockedUserIds)
         ? value.blockedUserIds.filter((item) => typeof item === 'string')
         : [],
@@ -610,6 +602,15 @@ export class CommentsService {
       this.configService.get<string>('app.jwtAccessSecret') ??
       'comment-captcha-secret'
     );
+  }
+
+  private async readSensitiveWordsFromPolicyOrLibrary(source: unknown) {
+    const byLibrary = await this.sensitiveWordsService.readEnabledWords();
+    if (byLibrary.length > 0) return byLibrary;
+    if (Array.isArray(source)) {
+      return source.filter((item): item is string => typeof item === 'string');
+    }
+    return [];
   }
 }
 

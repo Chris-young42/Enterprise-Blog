@@ -7,8 +7,11 @@ tmp
 .env
 .env.*
 !.env.example
+data/
 apps/*/dist
 apps/*/coverage
 packages/*/dist
 packages/*/coverage
 .turbo
+data
+.pnpm-store

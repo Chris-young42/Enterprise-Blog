@@ -1,5 +1,6 @@
 import { httpRequest } from './http'
 import type { AuthLoginResponse, UserProfile } from '@/types/api'
+import type { AuthCaptchaResponse } from '@/types/api'
 import type { LoginInput, RegisterInput } from '@/types/auth'
 
 export function register(payload: RegisterInput) {
@@ -14,6 +15,10 @@ export function login(payload: LoginInput) {
     method: 'POST',
     body: payload,
   })
+}
+
+export function fetchLoginCaptcha() {
+  return httpRequest<AuthCaptchaResponse>('/auth/captcha')
 }
 
 export function fetchAuthMe() {

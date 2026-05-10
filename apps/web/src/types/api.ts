@@ -52,6 +52,12 @@ export type AuthLoginResponse = {
   user: AuthUser
 }
 
+export type AuthCaptchaResponse = {
+  question: string
+  token: string
+  expiresAt: string
+}
+
 export type CategoryItem = {
   id: string
   parentId: string | null

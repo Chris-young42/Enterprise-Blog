@@ -9,6 +9,7 @@ import { BatchRemoveMessageBoardDto } from './dto/batch-remove-message-board.dto
 import { ListMessageBoardDto } from './dto/list-message-board.dto';
 
 type AuthRequest = {
+  ip?: string;
   user?: {
     sub: string;
   };
@@ -27,7 +28,8 @@ export class MessageBoardController {
   @Public()
   @Post()
   create(@Req() req: AuthRequest, @Body() dto: CreateMessageBoardDto) {
-    return this.messageBoardService.create(req.user ?? null, dto);
+    const context = req.ip ? { ip: req.ip } : {};
+    return this.messageBoardService.create(req.user ?? null, dto, context);
   }
 
   @Get('admin/list')

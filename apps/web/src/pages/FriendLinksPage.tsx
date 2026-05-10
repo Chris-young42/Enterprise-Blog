@@ -59,11 +59,13 @@ export function FriendLinksPage() {
           <Input placeholder="联系邮箱" value={email} onChange={(event) => setEmail(event.target.value)} />
           <Button
             onClick={() =>
-              void applyMutation.mutateAsync({
-                name: name.trim(),
-                url: url.trim(),
-                email: email.trim(),
-              })
+              void applyMutation.mutateAsync(
+                {
+                  name: name.trim(),
+                  url: url.trim(),
+                  ...(email.trim() ? { email: email.trim() } : {}),
+                },
+              )
             }
           >
             提交申请

@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { TrafficShieldGuard } from './common/guards/traffic-shield.guard';
 import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { CategoriesModule } from './modules/categories/categories.module';
@@ -22,6 +23,11 @@ import { FriendLinksModule } from './modules/friend-links/friend-links.module';
 import { AnnouncementsModule } from './modules/announcements/announcements.module';
 import { SiteConfigsModule } from './modules/site-configs/site-configs.module';
 import { MomentsModule } from './modules/moments/moments.module';
+import { StatsModule } from './modules/stats/stats.module';
+import { SensitiveWordsModule } from './modules/sensitive-words/sensitive-words.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { OpsModule } from './modules/ops/ops.module';
+import { SecurityModule } from './modules/security/security.module';
 
 @Module({
   imports: [
@@ -47,6 +53,11 @@ import { MomentsModule } from './modules/moments/moments.module';
     AnnouncementsModule,
     SiteConfigsModule,
     MomentsModule,
+    StatsModule,
+    SensitiveWordsModule,
+    NotificationsModule,
+    OpsModule,
+    SecurityModule,
   ],
   providers: [
     {
@@ -56,6 +67,10 @@ import { MomentsModule } from './modules/moments/moments.module';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: TrafficShieldGuard,
     },
   ],
 })

@@ -1,36 +1,71 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSiteAppearance } from '@/providers/site-appearance-provider'
 
-export type ThemeMode = 'light' | 'dark'
+export type ThemeMode = 'light' | 'dark' | 'system'
 
 const storageKey = 'enterprise-blog-theme'
 
 export function useThemeMode() {
-  const [theme, setTheme] = useState<ThemeMode>(() => {
-    if (typeof window === 'undefined') {
-      return 'dark'
-    }
-
+  const { appearance } = useSiteAppearance()
+  const [manualTheme, setManualTheme] = useState<'light' | 'dark' | null>(() => {
+    if (typeof window === 'undefined') return null
     const stored = window.localStorage.getItem(storageKey)
-    if (stored === 'light' || stored === 'dark') {
-      return stored
-    }
+    if (stored === 'light' || stored === 'dark') return stored
+    return null
+  })
 
+  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light'
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   })
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = () => setSystemTheme(media.matches ? 'dark' : 'light')
+    handler()
+    media.addEventListener('change', handler)
+    return () => media.removeEventListener('change', handler)
+  }, [])
+
+  const themeMode = appearance.themeMode
+  const resolvedTheme = useMemo<'light' | 'dark'>(() => {
+    if (manualTheme) return manualTheme
+    if (themeMode === 'light') return 'light'
+    if (themeMode === 'dark') return 'dark'
+    return systemTheme
+  }, [manualTheme, systemTheme, themeMode])
+
+  useEffect(() => {
     const root = document.documentElement
-    root.dataset.theme = theme
-    root.classList.toggle('dark', theme === 'dark')
+    root.dataset.theme = resolvedTheme
+    root.classList.toggle('dark', resolvedTheme === 'dark')
+  }, [resolvedTheme])
+
+  const setTheme = (theme: 'light' | 'dark') => {
+    setManualTheme(theme)
     window.localStorage.setItem(storageKey, theme)
-  }, [theme])
+  }
+
+  const clearManualTheme = () => {
+    setManualTheme(null)
+    window.localStorage.removeItem(storageKey)
+  }
 
   return useMemo(
     () => ({
-      theme,
+      theme: resolvedTheme,
+      themeMode,
       setTheme,
-      toggleTheme: () => setTheme((current) => (current === 'dark' ? 'light' : 'dark')),
+      clearManualTheme,
+      toggleTheme: () => {
+        if (resolvedTheme === 'dark') {
+          setTheme('light')
+          return
+        }
+        setTheme('dark')
+      },
     }),
-    [theme],
+    [resolvedTheme, themeMode],
   )
 }

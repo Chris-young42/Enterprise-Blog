@@ -13,6 +13,11 @@ import { ListArticlesDto } from './dto/list-articles.dto';
 import { BatchMoveCategoryDto } from './dto/batch-move-category.dto';
 import { BatchToggleDto } from './dto/batch-toggle.dto';
 import { BatchIdsDto } from './dto/batch-ids.dto';
+import { BatchStatusDto } from './dto/batch-status.dto';
+import { BatchMoveSeriesDto } from './dto/batch-move-series.dto';
+import { BatchVisibilityDto } from './dto/batch-visibility.dto';
+import { AssignArticleDto } from './dto/assign-article.dto';
+import { ListAssignmentsDto } from './dto/list-assignments.dto';
 
 type RequestUser = {
   sub: string;
@@ -334,6 +339,119 @@ export class ArticlesService {
     return { affected: result.count };
   }
 
+  async batchSetStatus(user: RequestUser, dto: BatchStatusDto) {
+    await this.assertBatchOwnershipOrPrivileged(user, dto.ids);
+
+    const data: Prisma.ArticleUpdateManyMutationInput = {
+      status: dto.status,
+      ...(dto.status === 'PUBLISHED'
+        ? { publishAt: new Date(), scheduledAt: null }
+        : dto.status === 'SCHEDULED'
+          ? { scheduledAt: new Date(Date.now() + 10 * 60 * 1000) }
+          : {}),
+    };
+
+    const result = await this.prisma.article.updateMany({
+      where: { id: { in: dto.ids }, deletedAt: null },
+      data,
+    });
+    return { affected: result.count };
+  }
+
+  async batchMoveSeries(user: RequestUser, dto: BatchMoveSeriesDto) {
+    await this.assertBatchOwnershipOrPrivileged(user, dto.ids);
+    if (dto.seriesId) {
+      const series = await this.prisma.series.findFirst({
+        where: { id: dto.seriesId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!series) throw new BadRequestException('series not found');
+    }
+
+    const result = await this.prisma.article.updateMany({
+      where: { id: { in: dto.ids }, deletedAt: null },
+      data: { seriesId: dto.seriesId ?? null },
+    });
+    return { affected: result.count };
+  }
+
+  async batchSetVisibility(user: RequestUser, dto: BatchVisibilityDto) {
+    await this.assertBatchOwnershipOrPrivileged(user, dto.ids);
+
+    const result = await this.prisma.article.updateMany({
+      where: { id: { in: dto.ids }, deletedAt: null },
+      data: {
+        visibility: dto.visibility,
+        ...(dto.visibility === 'PASSWORD' ? {} : { accessPasswordHash: null }),
+      },
+    });
+    return { affected: result.count };
+  }
+
+  async assignArticle(user: RequestUser, articleId: string, dto: AssignArticleDto) {
+    const article = await this.prisma.article.findFirst({
+      where: { id: articleId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!article) throw new NotFoundException('article not found');
+
+    const assignee = await this.prisma.user.findFirst({
+      where: { id: dto.assigneeId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!assignee) throw new BadRequestException('assignee not found');
+
+    const existing = await this.prisma.articleAssignment.findFirst({
+      where: { articleId, assigneeId: dto.assigneeId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (existing) {
+      const updated = await this.prisma.articleAssignment.update({
+        where: { id: existing.id },
+        data: {
+          note: dto.note ?? null,
+          dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
+          status: dto.status ?? 'TODO',
+          assignerId: user.sub,
+        },
+        include: assignmentInclude(),
+      });
+      return mapAssignment(updated);
+    }
+
+    const created = await this.prisma.articleAssignment.create({
+      data: {
+        articleId,
+        assigneeId: dto.assigneeId,
+        assignerId: user.sub,
+        note: dto.note ?? null,
+        dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
+        status: dto.status ?? 'TODO',
+      },
+      include: assignmentInclude(),
+    });
+    return mapAssignment(created);
+  }
+
+  async listAssignments(user: RequestUser, query: ListAssignmentsDto) {
+    const privileged = hasPrivilegedRole(user.roleCodes);
+    const where: Prisma.ArticleAssignmentWhereInput = {
+      deletedAt: null,
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.assigneeId ? { assigneeId: query.assigneeId } : {}),
+      ...(!privileged ? { assigneeId: user.sub } : {}),
+    };
+
+    const rows = await this.prisma.articleAssignment.findMany({
+      where,
+      include: assignmentInclude(),
+      orderBy: [{ createdAt: 'desc' }],
+    });
+
+    return { items: rows.map(mapAssignment) };
+  }
+
   private async assertTaxonomyExists(categoryId?: string, seriesId?: string, tagIds?: string[]) {
     if (categoryId) {
       const exists = await this.prisma.category.findFirst({
@@ -500,6 +618,33 @@ function articleInclude() {
   } satisfies Prisma.ArticleInclude;
 }
 
+function assignmentInclude() {
+  return {
+    article: {
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        status: true,
+      },
+    },
+    assignee: {
+      select: {
+        id: true,
+        username: true,
+        nickname: true,
+      },
+    },
+    assigner: {
+      select: {
+        id: true,
+        username: true,
+        nickname: true,
+      },
+    },
+  } satisfies Prisma.ArticleAssignmentInclude;
+}
+
 function mapArticle(article: Prisma.ArticleGetPayload<{ include: ReturnType<typeof articleInclude> }>) {
   return {
     id: article.id,
@@ -531,5 +676,39 @@ function mapArticle(article: Prisma.ArticleGetPayload<{ include: ReturnType<type
       name: item.tag.name,
       slug: item.tag.slug,
     })),
+  };
+}
+
+function mapAssignment(
+  row: Prisma.ArticleAssignmentGetPayload<{ include: ReturnType<typeof assignmentInclude> }>,
+) {
+  return {
+    id: row.id,
+    articleId: row.articleId,
+    assigneeId: row.assigneeId,
+    assignerId: row.assignerId,
+    status: row.status,
+    note: row.note,
+    dueAt: row.dueAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    article: {
+      id: row.article.id,
+      title: row.article.title,
+      slug: row.article.slug,
+      status: row.article.status,
+    },
+    assignee: {
+      id: row.assignee.id,
+      username: row.assignee.username,
+      nickname: row.assignee.nickname,
+    },
+    assigner: row.assigner
+      ? {
+          id: row.assigner.id,
+          username: row.assigner.username,
+          nickname: row.assigner.nickname,
+        }
+      : null,
   };
 }

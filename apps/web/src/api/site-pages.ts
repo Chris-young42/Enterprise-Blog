@@ -1,4 +1,4 @@
-﻿import { httpRequest } from './http'
+import { httpRequest } from './http'
 
 type PageItem = {
   id: string
@@ -46,6 +46,31 @@ type AnnouncementItem = {
   isActive: boolean
   createdAt: string
   updatedAt: string
+}
+
+export type AppearanceConfig = {
+  themeMode: 'light' | 'dark' | 'system'
+  themePreset: 'ocean' | 'sunset' | 'forest'
+  wallpaperUrl?: string
+  fontFamily: 'sans' | 'serif' | 'mono'
+  fontScale: 'sm' | 'md' | 'lg'
+  widgets: {
+    hotArticles: boolean
+    latestArticles: boolean
+    tagCloud: boolean
+    archive: boolean
+  }
+  animations: {
+    pageLoad: boolean
+    contentReveal: boolean
+    interactive: boolean
+  }
+  backToTop: boolean
+  floatingAction: boolean
+  customCss?: string
+  customJs?: string
+  customHeadHtml?: string
+  customFooterHtml?: string
 }
 
 export type { PageItem, MessageBoardItem, FriendLinkItem, AnnouncementItem }
@@ -298,6 +323,14 @@ export function fetchPublicNavConfig() {
   return httpRequest<SiteNavItem[] | null>('/site-configs/public/nav')
 }
 
+export function fetchPublicSideNavConfig() {
+  return httpRequest<SiteNavItem[] | null>('/site-configs/public/side-nav')
+}
+
+export function fetchPublicAppearanceConfig() {
+  return httpRequest<AppearanceConfig | null>('/site-configs/public/appearance')
+}
+
 export function fetchSiteConfigs() {
   return httpRequest<SiteConfigItem[]>('/site-configs')
 }
@@ -306,5 +339,19 @@ export function upsertNavConfig(items: SiteNavItem[]) {
   return httpRequest<SiteConfigItem>('/site-configs/nav', {
     method: 'POST',
     body: { items },
+  })
+}
+
+export function upsertSideNavConfig(items: SiteNavItem[]) {
+  return httpRequest<SiteConfigItem>('/site-configs/side-nav', {
+    method: 'POST',
+    body: { items },
+  })
+}
+
+export function upsertAppearanceConfig(payload: AppearanceConfig) {
+  return httpRequest<SiteConfigItem>('/site-configs/appearance', {
+    method: 'POST',
+    body: payload,
   })
 }

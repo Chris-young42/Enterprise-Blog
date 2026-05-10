@@ -1,8 +1,12 @@
-﻿import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { SiteConfigsService } from './site-configs.service';
-import { UpsertSiteConfigDto, UpsertNavConfigDto } from './dto/upsert-site-config.dto';
+import {
+  UpsertAppearanceConfigDto,
+  UpsertNavConfigDto,
+  UpsertSiteConfigDto,
+} from './dto/upsert-site-config.dto';
 
 @Controller('site-configs')
 export class SiteConfigsController {
@@ -18,6 +22,18 @@ export class SiteConfigsController {
   @Get('public/nav')
   getPublicNav() {
     return this.siteConfigsService.getNav();
+  }
+
+  @Public()
+  @Get('public/side-nav')
+  getPublicSideNav() {
+    return this.siteConfigsService.getSideNav();
+  }
+
+  @Public()
+  @Get('public/appearance')
+  getPublicAppearance() {
+    return this.siteConfigsService.getAppearance();
   }
 
   @Get(':key')
@@ -36,5 +52,17 @@ export class SiteConfigsController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'EDITOR')
   upsertNav(@Body() dto: UpsertNavConfigDto) {
     return this.siteConfigsService.upsertNav(dto.items);
+  }
+
+  @Post('side-nav')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'EDITOR')
+  upsertSideNav(@Body() dto: UpsertNavConfigDto) {
+    return this.siteConfigsService.upsertSideNav(dto.items);
+  }
+
+  @Post('appearance')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'EDITOR')
+  upsertAppearance(@Body() dto: UpsertAppearanceConfigDto) {
+    return this.siteConfigsService.upsertAppearance(dto);
   }
 }

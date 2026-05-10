@@ -86,7 +86,12 @@ export function SitePagesAdminPage() {
         <CardContent className="space-y-2">
           <Input placeholder="标题" value={title} onChange={(event) => setTitle(event.target.value)} />
           <Input placeholder="slug（自动）" value={slug} readOnly />
-          <Input placeholder="内容" value={content} onChange={(event) => setContent(event.target.value)} />
+          <textarea
+            placeholder="内容（支持长文输入）"
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+            className="min-h-52 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 dark:border-slate-800 dark:bg-slate-950"
+          />
           <Input placeholder="SEO标题" value={seoTitle} onChange={(event) => setSeoTitle(event.target.value)} />
           <Input placeholder="SEO描述" value={seoDescription} onChange={(event) => setSeoDescription(event.target.value)} />
           <Button
@@ -103,6 +108,12 @@ export function SitePagesAdminPage() {
           >
             创建页面
           </Button>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-xs text-slate-500">实时预览</p>
+            <p className="mt-1 font-medium">{seoTitle.trim() || title.trim() || '未命名页面'}</p>
+            <p className="text-xs text-slate-500">{seoDescription.trim() || '无SEO描述'}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm">{content || '暂无内容'}</p>
+          </div>
         </CardContent>
       </Card>
 
@@ -146,12 +157,20 @@ export function SitePagesAdminPage() {
               </div>
 
               {editingId === page.id ? (
-                <div className="mt-3 grid gap-2 md:grid-cols-3">
-                  <Input value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} />
-                  <Input value={editingSlug} onChange={(event) => setEditingSlug(event.target.value)} />
-                  <Input value={editingContent} onChange={(event) => setEditingContent(event.target.value)} />
-                  <Input value={editingSeoTitle} onChange={(event) => setEditingSeoTitle(event.target.value)} />
-                  <Input value={editingSeoDescription} onChange={(event) => setEditingSeoDescription(event.target.value)} />
+                <div className="mt-3 space-y-2">
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <Input value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} />
+                    <Input value={editingSlug} onChange={(event) => setEditingSlug(event.target.value)} />
+                  </div>
+                  <textarea
+                    value={editingContent}
+                    onChange={(event) => setEditingContent(event.target.value)}
+                    className="min-h-52 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 dark:border-slate-800 dark:bg-slate-950"
+                  />
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <Input value={editingSeoTitle} onChange={(event) => setEditingSeoTitle(event.target.value)} />
+                    <Input value={editingSeoDescription} onChange={(event) => setEditingSeoDescription(event.target.value)} />
+                  </div>
                   <div className="flex gap-2">
                     <Button
                       size="sm"

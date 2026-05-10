@@ -1,11 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react'
-import { useThemeMode, type ThemeMode } from '@/hooks/use-theme'
+import { useThemeMode } from '@/hooks/use-theme'
 
-type ThemeContextValue = {
-  theme: ThemeMode
-  setTheme: (theme: ThemeMode) => void
-  toggleTheme: () => void
-}
+type ThemeContextValue = ReturnType<typeof useThemeMode>
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 

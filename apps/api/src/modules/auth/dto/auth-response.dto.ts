@@ -10,3 +10,9 @@ export type AuthResponseDto = {
     roleCodes: string[];
   };
 };
+
+export type AuthCaptchaDto = {
+  question: string;
+  token: string;
+  expiresAt: string;
+};

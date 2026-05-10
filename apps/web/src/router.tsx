@@ -206,6 +206,55 @@ const router = createBrowserRouter([
             },
           },
           {
+            path: 'site-profile',
+            lazy: async () => {
+              const { SiteBaseProfileAdminPage } = await import('@/pages/admin/SiteBaseProfileAdminPage')
+              return { Component: SiteBaseProfileAdminPage }
+            },
+          },
+          {
+            path: 'sensitive-words',
+            lazy: async () => {
+              const { SensitiveWordsAdminPage } = await import('@/pages/admin/SensitiveWordsAdminPage')
+              return { Component: SensitiveWordsAdminPage }
+            },
+          },
+          {
+            path: 'notifications',
+            lazy: async () => {
+              const { NotificationsAdminPage } = await import('@/pages/admin/NotificationsAdminPage')
+              return { Component: NotificationsAdminPage }
+            },
+          },
+          {
+            path: 'security',
+            lazy: async () => {
+              const { SecurityAdminPage } = await import('@/pages/admin/SecurityAdminPage')
+              return { Component: SecurityAdminPage }
+            },
+          },
+          {
+            path: 'security-audit',
+            lazy: async () => {
+              const { SecurityAuditPage } = await import('@/pages/admin/SecurityAuditPage')
+              return { Component: SecurityAuditPage }
+            },
+          },
+          {
+            path: 'ops',
+            lazy: async () => {
+              const { OpsAdminPage } = await import('@/pages/admin/OpsAdminPage')
+              return { Component: OpsAdminPage }
+            },
+          },
+          {
+            path: 'ops-approvals',
+            lazy: async () => {
+              const { OpsApprovalRecordsPage } = await import('@/pages/admin/OpsApprovalRecordsPage')
+              return { Component: OpsApprovalRecordsPage }
+            },
+          },
+          {
             path: 'moments',
             lazy: async () => {
               const { MomentsAdminPage } = await import('@/pages/admin/MomentsAdminPage')

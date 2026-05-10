@@ -61,6 +61,24 @@ enum MessageType {
   SECURITY
 }
 
+enum EmailDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum StaticTaskStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum BackupTaskType {
+  BACKUP
+  RESTORE
+  MIGRATE
+}
+
 model User {
   id              String       @id @default(cuid())
   email           String       @unique
@@ -93,6 +111,8 @@ model User {
   loginLogs       LoginLog[]
   operationLogs   OperationLog[]
   uploadedMedia   MediaAsset[]
+  assignedArticles ArticleAssignment[] @relation("ArticleAssignmentAssignee")
+  assignedByMe     ArticleAssignment[] @relation("ArticleAssignmentAssigner")
 }
 
 model Role {
@@ -226,6 +246,7 @@ model Article {
   attachments        ArticleAttachment[]
   likesByUsers       ArticleLike[]
   favoritedByUsers   Favorite[]
+  assignments        ArticleAssignment[]
 
   @@index([authorId])
   @@index([categoryId])
@@ -234,6 +255,25 @@ model Article {
   @@index([visibility])
   @@index([publishAt])
   @@index([isPinned, isRecommended])
+}
+
+model ArticleAssignment {
+  id          String    @id @default(cuid())
+  articleId   String
+  assigneeId  String
+  assignerId  String?
+  status      String    @default("TODO")
+  note        String?
+  dueAt       DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  article     Article   @relation(fields: [articleId], references: [id])
+  assignee    User      @relation("ArticleAssignmentAssignee", fields: [assigneeId], references: [id])
+  assigner    User?     @relation("ArticleAssignmentAssigner", fields: [assignerId], references: [id])
+
+  @@index([articleId, status])
+  @@index([assigneeId, status])
 }
 
 model ArticleTag {
@@ -501,8 +541,68 @@ model Notification {
   updatedAt   DateTime             @updatedAt
   deletedAt   DateTime?
   user        User                 @relation(fields: [userId], references: [id])
+  emailLogs   EmailDeliveryLog[]
 
   @@index([userId, isRead])
+}
+
+model EmailDeliveryLog {
+  id             String              @id @default(cuid())
+  notificationId String?
+  recipient      String
+  subject        String
+  contentPreview String?             @db.Text
+  status         EmailDeliveryStatus @default(PENDING)
+  retries        Int                 @default(0)
+  lastError      String?             @db.Text
+  sentAt         DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  deletedAt      DateTime?
+  notification   Notification?       @relation(fields: [notificationId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([recipient, createdAt])
+  @@index([notificationId])
+}
+
+model StaticGenerationTask {
+  id          String           @id @default(cuid())
+  taskNo      String           @unique
+  status      StaticTaskStatus @default(RUNNING)
+  outputDir   String
+  generatedRoutes String       @db.Text
+  generatedFiles  String       @db.Text
+  fileCount   Int              @default(0)
+  startedAt   DateTime         @default(now())
+  finishedAt  DateTime?
+  error       String?          @db.Text
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+
+  @@index([status, startedAt])
+}
+
+model BackupTask {
+  id           String         @id @default(cuid())
+  taskNo       String         @unique
+  type         BackupTaskType
+  status       StaticTaskStatus @default(RUNNING)
+  artifactPath String?
+  restoreFrom  String?
+  target       String?
+  command      String         @db.Text
+  output       String?        @db.Text
+  error        String?        @db.Text
+  startedAt    DateTime       @default(now())
+  finishedAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+
+  @@index([type, startedAt])
+  @@index([status, startedAt])
 }
 
 model SensitiveWord {

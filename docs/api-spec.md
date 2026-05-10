@@ -64,7 +64,7 @@
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/logout`
-- `POST /auth/captcha`
+- `GET /auth/captcha`
 
 ### User
 
@@ -191,6 +191,7 @@
 
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
+- `GET /api/v1/auth/captcha`
 - `GET /api/v1/auth/me`
 
 ### User
@@ -316,10 +317,159 @@
 - `PATCH /api/v1/moments/:id`
 - `DELETE /api/v1/moments/:id`
 - `GET /api/v1/site-configs/public/nav`
+- `GET /api/v1/site-configs/public/side-nav`
 - `GET /api/v1/site-configs`
 - `GET /api/v1/site-configs/:key`
 - `POST /api/v1/site-configs`
 - `POST /api/v1/site-configs/nav`
+- `POST /api/v1/site-configs/side-nav`
+
+
+### 主题外观系统（第10阶段首版）
+
+- GET /api/v1/site-configs/public/appearance 
+- POST /api/v1/site-configs/appearance（主题模式/主题预设/字体字号/组件开关/动画开关/自定义CSS+JS+头尾代码）
+### 统计系统（第9阶段首版）
+
+- `GET /api/v1/stats/overview`
+- `GET /api/v1/stats/traffic`（支持 `days/from/to/granularity`，返回 points + 当前/上一区间对比）
+- `GET /api/v1/stats/content-ranking`
+- `GET /api/v1/stats/visitor-analysis`
+- `GET /api/v1/stats/spider-analysis`
+- `GET /api/v1/stats/logs/access`（支持 `keyword/method/statusCode/isSpider` 过滤）
+- `GET /api/v1/stats/logs/login`（支持 `keyword/isSuccess` 过滤）
+- `GET /api/v1/stats/logs/operation`（支持 `keyword/module/action` 过滤）
+- `GET /api/v1/stats/logs/access/export`（CSV 导出）
+- `GET /api/v1/stats/logs/login/export`（CSV 导出）
+- `GET /api/v1/stats/logs/operation/export`（CSV 导出）
+
+
+### 第11阶段（首批）
+
+- GET /api/v1/sensitive-words 
+- POST /api/v1/sensitive-words 
+- PATCH /api/v1/sensitive-words/:id 
+- DELETE /api/v1/sensitive-words/:id 
+- GET /api/v1/notifications/me 
+- PATCH /api/v1/notifications/me/read 
+- PATCH /api/v1/notifications/me/read-all 
+- GET /api/v1/notifications/admin/list 
+- GET /api/v1/notifications/admin/email-logs
+- POST /api/v1/ops/cache/clear 
+- POST /api/v1/ops/static/generate 
+- GET /api/v1/ops/static/tasks
+- GET /api/v1/ops/static/artifacts
+- POST /api/v1/ops/backup
+- POST /api/v1/ops/restore
+- POST /api/v1/ops/restore/precheck
+- POST /api/v1/ops/migrate
+- POST /api/v1/ops/migrate/precheck
+- GET /api/v1/ops/backup/tasks
+- GET /api/v1/ops/approval-records
+- GET /api/v1/ops/site/profile 
+- PATCH /api/v1/ops/site/profile 
+- POST /api/v1/articles/:id/assign
+- GET /api/v1/articles/assignments/list
+- POST /api/v1/articles/batch/status
+- POST /api/v1/articles/batch/move-series
+- POST /api/v1/articles/batch/visibility
+
+### 第12阶段（首批）
+
+- GET /api/v1/auth/captcha
+- GET /api/v1/security/ip-bans
+- POST /api/v1/security/ip-bans
+- DELETE /api/v1/security/ip-bans/:id
+- GET /api/v1/security/keyword-bans
+- POST /api/v1/security/keyword-bans
+- DELETE /api/v1/security/keyword-bans/:id
+
+说明（第12阶段首批风控闭环）：
+
+- 登录接口 `POST /api/v1/auth/login` 新增验证码字段：`captchaToken`、`captchaAnswer`。
+- 登录防爆破：按用户名/邮箱与 IP 在时间窗口内累计失败次数，超阈值后临时封禁登录。
+- IP封禁联动：登录、评论发布、留言发布都会检查 `BannedIp`。
+- 关键词封禁联动：评论内容、留言内容会命中 `security.keyword_bans` 并拒绝提交。
+
+### 第12阶段（下一批）
+
+- GET /api/v1/security/blocked-domains
+- POST /api/v1/security/blocked-domains
+- DELETE /api/v1/security/blocked-domains/:domain
+
+说明（第12阶段下一批风控深化）：
+
+- 全局限流：新增 `TrafficShieldGuard`，按 IP 进行分钟级限流（429）。
+- 防CC：短窗口突发流量触发自动临时封禁 `BannedIp`（带原因和过期时间）。
+- 恶意链接拦截：支持域名黑名单（`security.blocked_link_domains`），命中 referer 立即拒绝并封禁来源 IP。
+- HTTPS适配：响应头增加 `Strict-Transport-Security`；可通过 `ENFORCE_HTTPS=true` 强制 HTTPS（HTTP 返回 426）。
+- 异地登录提醒：当用户成功登录且 IP 与历史成功登录 IP 不同，自动发送站内安全通知；可配置是否邮件同步发送。
+
+### 第12阶段（再深化）
+
+- Redis 分布式限流：
+  - 全局风控守卫支持 Redis 计数（多实例一致）；Redis 不可用时回退到本地内存计数。
+- GeoIP 风险评分：
+  - 登录成功后结合 GeoIP 地理信息与历史登录记录计算可疑评分，达到阈值触发异地登录安全提醒。
+- 安全审计分析：
+  - `GET /api/v1/stats/security-analysis`（支持 `days/from/to/action/ip` 过滤，返回 IP封禁命中 / 限流命中 / 恶意来源命中 / Redis健康降级与恢复 的日趋势、总量、最近事件）。
+  - `GET /api/v1/stats/security-analysis/export`（CSV 导出，支持 `days/from/to/action/ip` 过滤）。
+  - `GET /api/v1/stats/security-analysis/export-history`（安全审计导出任务历史，支持分页与时间范围）。
+  - `GET /api/v1/stats/security-analysis/export-history/export`（导出历史CSV）。
+  - 结果新增 `ipSegments`（按 IP 段聚合命中数量，支持 IPv4 `/24` 与 IPv6 前缀分组）。
+- Redis 健康探针与告警：
+  - `GET /api/v1/security/redis/health`
+  - `GET /api/v1/security/redis/sla?hours=24`
+  - `GET /api/v1/security/redis/sla/trend?days=30`（按日返回探针失败率、失败次数、MTTR、恢复次数）
+  - 服务端定时探测 Redis 连通性，状态从健康切换到降级或恢复时写入 `SECURITY` 操作日志并向 `SUPER_ADMIN` 推送安全通知。
+  - Redis持续降级告警节流：`REDIS_DEGRADED_ALERT_THROTTLE_SECONDS` 控制持续告警最小间隔。
+  - Redis可用性窗口统计：`REDIS_SLA_WINDOW_HOURS` 控制默认SLA统计窗口，返回可用性百分比、故障时长与事件列表。
+- GeoIP 离线库维护与精度校验：
+  - `POST /api/v1/security/geoip/update`（使用 `GEOIP_LICENSE_KEY` 执行离线库更新并热重载）
+  - `POST /api/v1/security/geoip/reload`
+  - `POST /api/v1/security/geoip/validate`（请求体：`samples: [{ ip, country?, city? }]`，返回国家/城市精度汇总与样本核验结果）
+- `GET /api/v1/security/geoip/status`（自动更新状态、最近成功/失败、下次计划执行时间）
+  - `GET /api/v1/security/geoip/validation-history`（最近校验历史、latest/previous 与精度 delta）
+- 定时自动更新间隔：`GEOIP_AUTO_UPDATE_INTERVAL_HOURS`（小时）
+  - 当未配置 `GEOIP_LICENSE_KEY` 时，自动任务状态记为 `SKIPPED`（不会阻断GeoIP查询与风控流程）
+
+安全导出历史过滤扩展：
+
+- `GET /api/v1/stats/security-analysis/export-history`
+  - 支持：`days/from/to`
+  - 支持：`keyword`（操作者用户名/昵称关键词）
+  - 支持：`action`（`SECURITY_ANALYSIS_EXPORT` / `SECURITY_EXPORT_HISTORY_EXPORT`）
+  - 支持：`ip`
+  - 支持：`minCount/maxCount`（导出条数范围过滤）
+- `GET /api/v1/stats/security-analysis/export-history/export`
+  - 支持同等过滤参数并导出 CSV
+
+说明（restore/migrate 流水线）：
+
+- `POST /api/v1/ops/restore`
+  - body: `{ "restoreFrom": "xxx.json", "dryRun"?: boolean, "confirmToken"?: string, "confirmPhrase"?: "RESTORE CONFIRM" }`
+  - 约束：恢复文件必须位于 `BACKUP_OUTPUT_DIR` 内。
+  - 双人审批：预检查发起人与正式执行确认人必须是不同管理员，且最终确认人必须是 `SUPER_ADMIN`。
+  - 审批原因：正式执行必须填写 `approvalReason`（至少8字符）。
+  - 两段式：先调用 `POST /api/v1/ops/restore/precheck` 获取 `confirmToken`，再携带 token 执行正式恢复。
+  - `dryRun=true` 时仅返回预检查报告，不执行落库。
+  - 行为：正式执行前自动创建回滚点快照，随后执行结构校验 + 数据恢复事务，写入操作审计日志。
+- `POST /api/v1/ops/restore/precheck`
+  - body: `{ "restoreFrom": "xxx.json" }`
+  - 返回：预检查报告 + 一次性确认令牌（含过期时间）+ `requiredPhrase`。
+- `POST /api/v1/ops/migrate`
+  - body: `{ "target"?: "production", "dryRun"?: boolean, "confirmToken"?: string, "confirmPhrase"?: "MIGRATE CONFIRM" }`
+  - 约束：`target` 仅允许 `[a-zA-Z0-9_-]`。
+  - 双人审批：预检查发起人与正式执行确认人必须是不同管理员，且最终确认人必须是 `SUPER_ADMIN`。
+  - 审批原因：正式执行必须填写 `approvalReason`（至少8字符）。
+  - 两段式：先调用 `POST /api/v1/ops/migrate/precheck` 获取 `confirmToken`，再携带 token 执行正式迁移。
+  - `dryRun=true` 时仅返回迁移状态报告，不执行 deploy。
+  - 行为：正式执行前自动创建回滚点快照，随后真实执行 `prisma migrate status` + `prisma migrate deploy`，并写入操作审计日志。
+- `POST /api/v1/ops/migrate/precheck`
+  - body: `{ "target"?: "production" }`
+  - 返回：迁移预检查报告 + 一次性确认令牌（含过期时间）+ `requiredPhrase`。
+- `GET /api/v1/ops/approval-records`
+  - 返回：高危操作审批流水（含 token 消费记录、审批人/发起人字段、审批原因与任务执行审计）。
 
 ## 9. 初始化脚本
 
@@ -327,3 +477,4 @@
   - 角色（SUPER_ADMIN/ADMIN/EDITOR/AUTHOR/VISITOR）
   - 权限基础数据
   - 管理员账号：`admin / Admin@123456`（首次登录后请立即修改）
+

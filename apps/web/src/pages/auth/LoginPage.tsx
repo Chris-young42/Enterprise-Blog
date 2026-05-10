@@ -1,11 +1,12 @@
 import { FormEvent, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { login } from '@/api/auth'
+import { fetchLoginCaptcha, login } from '@/api/auth'
 import { useAuthStore } from '@/store/auth-store'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useQuery } from '@tanstack/react-query'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -20,20 +21,34 @@ export function LoginPage() {
 
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('Admin@123456')
+  const [captchaAnswer, setCaptchaAnswer] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const captchaQuery = useQuery({
+    queryKey: ['auth', 'captcha'],
+    queryFn: fetchLoginCaptcha,
+  })
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setErrorMessage(null)
     setSubmitting(true)
     try {
-      const data = await login({ username, password })
+      if (!captchaQuery.data?.token) {
+        throw new Error('验证码未加载完成')
+      }
+      const data = await login({
+        username,
+        password,
+        captchaToken: captchaQuery.data.token,
+        captchaAnswer,
+      })
       setTokenAndUser(data.accessToken, data.user)
       setProfile(null)
       navigate(redirectTo, { replace: true })
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '登录失败，请检查账号密码')
+      await captchaQuery.refetch()
     } finally {
       setSubmitting(false)
     }
@@ -61,6 +76,20 @@ export function LoginPage() {
                 onChange={(event) => setPassword(event.target.value)}
                 required
               />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">验证码</label>
+              <div className="flex gap-2">
+                <Input
+                  value={captchaAnswer}
+                  onChange={(event) => setCaptchaAnswer(event.target.value)}
+                  placeholder={captchaQuery.data?.question ?? '加载验证码中...'}
+                  required
+                />
+                <Button type="button" variant="outline" onClick={() => void captchaQuery.refetch()}>
+                  刷新
+                </Button>
+              </div>
             </div>
             {errorMessage ? (
               <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">

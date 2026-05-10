@@ -9,6 +9,11 @@ import { Public } from '../../common/decorators/public.decorator';
 import { BatchIdsDto } from './dto/batch-ids.dto';
 import { BatchToggleDto } from './dto/batch-toggle.dto';
 import { BatchMoveCategoryDto } from './dto/batch-move-category.dto';
+import { BatchStatusDto } from './dto/batch-status.dto';
+import { BatchMoveSeriesDto } from './dto/batch-move-series.dto';
+import { BatchVisibilityDto } from './dto/batch-visibility.dto';
+import { AssignArticleDto } from './dto/assign-article.dto';
+import { ListAssignmentsDto } from './dto/list-assignments.dto';
 
 type AuthRequest = {
   user?: {
@@ -79,22 +84,6 @@ export class ArticlesController {
     return this.articlesService.archive();
   }
 
-  @Public()
-  @Post(':slug/access')
-  accessWithPassword(
-    @Req() req: AuthRequest,
-    @Param('slug') slug: string,
-    @Body() dto: PasswordAccessDto,
-  ) {
-    return this.articlesService.detail(req.user ?? null, slug, dto.password);
-  }
-
-  @Public()
-  @Get(':slug')
-  detail(@Req() req: AuthRequest, @Param('slug') slug: string) {
-    return this.articlesService.detail(req.user ?? null, slug);
-  }
-
   @Delete(':id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'EDITOR', 'AUTHOR')
   remove(@Req() req: AuthRequest, @Param('id') id: string) {
@@ -128,5 +117,56 @@ export class ArticlesController {
   batchMoveCategory(@Req() req: AuthRequest, @Body() dto: BatchMoveCategoryDto) {
     if (!req.user) return null;
     return this.articlesService.batchMoveCategory(req.user, dto);
+  }
+
+  @Post('batch/status')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'EDITOR', 'AUTHOR')
+  batchStatus(@Req() req: AuthRequest, @Body() dto: BatchStatusDto) {
+    if (!req.user) return null;
+    return this.articlesService.batchSetStatus(req.user, dto);
+  }
+
+  @Post('batch/move-series')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'EDITOR', 'AUTHOR')
+  batchMoveSeries(@Req() req: AuthRequest, @Body() dto: BatchMoveSeriesDto) {
+    if (!req.user) return null;
+    return this.articlesService.batchMoveSeries(req.user, dto);
+  }
+
+  @Post('batch/visibility')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'EDITOR', 'AUTHOR')
+  batchVisibility(@Req() req: AuthRequest, @Body() dto: BatchVisibilityDto) {
+    if (!req.user) return null;
+    return this.articlesService.batchSetVisibility(req.user, dto);
+  }
+
+  @Post(':id/assign')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'EDITOR')
+  assign(@Req() req: AuthRequest, @Param('id') id: string, @Body() dto: AssignArticleDto) {
+    if (!req.user) return null;
+    return this.articlesService.assignArticle(req.user, id, dto);
+  }
+
+  @Get('assignments/list')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'EDITOR', 'AUTHOR')
+  assignments(@Req() req: AuthRequest, @Query() query: ListAssignmentsDto) {
+    if (!req.user) return { items: [] };
+    return this.articlesService.listAssignments(req.user, query);
+  }
+
+  @Public()
+  @Post(':slug/access')
+  accessWithPassword(
+    @Req() req: AuthRequest,
+    @Param('slug') slug: string,
+    @Body() dto: PasswordAccessDto,
+  ) {
+    return this.articlesService.detail(req.user ?? null, slug, dto.password);
+  }
+
+  @Public()
+  @Get(':slug')
+  detail(@Req() req: AuthRequest, @Param('slug') slug: string) {
+    return this.articlesService.detail(req.user ?? null, slug);
   }
 }

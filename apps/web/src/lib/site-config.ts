@@ -15,4 +15,10 @@ export const siteConfig = {
     { label: '后台', href: '/admin' },
     { label: '登录', href: '/auth/login' },
   ],
+  sideNav: [
+    { label: '热门文章', href: '/tags' },
+    { label: '最新动态', href: '/moments' },
+    { label: '时光轴', href: '/timeline' },
+    { label: '留言板', href: '/message-board' },
+  ],
 } as const

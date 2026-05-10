@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 @theme inline {
-  --font-sans: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-sans: var(--site-font-sans), 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -22,56 +22,106 @@
 }
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
+  --site-font-sans: 'Inter';
+  --site-font-size-base: 16px;
+  --site-accent-rgb: 14, 116, 144;
+  --background: 210 27% 98%;
+  --foreground: 222 44% 9%;
   --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card-foreground: 222 44% 9%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
+  --popover-foreground: 222 44% 9%;
+  --primary: 221 70% 13%;
   --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
+  --secondary: 214 32% 96%;
+  --secondary-foreground: 223 40% 14%;
+  --muted: 215 28% 95%;
+  --muted-foreground: 218 18% 43%;
+  --accent: 211 39% 94%;
+  --accent-foreground: 222 44% 9%;
+  --border: 214 28% 88%;
+  --input: 214 30% 87%;
+  --ring: 199 90% 47%;
 }
 
 .dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 6.5%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
+  --background: 224 50% 7%;
+  --foreground: 210 42% 97%;
+  --card: 224 44% 10%;
+  --card-foreground: 210 42% 97%;
+  --popover: 224 44% 10%;
+  --popover-foreground: 210 42% 97%;
+  --primary: 210 42% 97%;
+  --primary-foreground: 223 43% 13%;
+  --secondary: 222 36% 15%;
+  --secondary-foreground: 210 42% 97%;
+  --muted: 222 30% 16%;
+  --muted-foreground: 215 20% 68%;
+  --accent: 222 36% 15%;
+  --accent-foreground: 210 42% 97%;
+  --border: 222 28% 20%;
+  --input: 222 28% 21%;
+  --ring: 197 95% 67%;
 }
 
 @layer base {
   html {
     scroll-behavior: smooth;
+    font-size: var(--site-font-size-base);
   }
 
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
+    line-height: 1.5;
+    letter-spacing: 0.01em;
   }
 
   * {
     @apply border-border;
+  }
+}
+
+@layer utilities {
+  .site-fade-in {
+    animation: site-fade-in 420ms ease-out both;
+  }
+
+  @keyframes site-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .site-grid-pattern {
+    background-image:
+      linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .site-glass {
+    @apply border border-white/45 bg-white/70 backdrop-blur-2xl dark:border-slate-800/80 dark:bg-slate-950/72;
+  }
+}
+
+@layer base {
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(71, 85, 105, 0.55), rgba(51, 65, 85, 0.7));
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
   }
 }
