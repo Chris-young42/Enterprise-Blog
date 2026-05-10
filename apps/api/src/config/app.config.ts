@@ -1,0 +1,25 @@
+import { registerAs } from '@nestjs/config';
+
+export default registerAs('app', () => ({
+  nodeEnv: process.env.NODE_ENV ?? 'development',
+  port: Number(process.env.PORT ?? 3000),
+  apiPrefix: process.env.API_PREFIX ?? 'api/v1',
+  appName: process.env.APP_NAME ?? 'Enterprise Blog API',
+  jwtAccessSecret: process.env.JWT_ACCESS_SECRET ?? 'change-me-access-secret',
+  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET ?? 'change-me-refresh-secret',
+  commentCaptchaSecret: process.env.COMMENT_CAPTCHA_SECRET ?? 'change-me-comment-captcha-secret',
+  jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '1d',
+  jwtAccessExpiresInSeconds: Number(process.env.JWT_ACCESS_EXPIRES_IN_SECONDS ?? 86400),
+  bcryptSaltRounds: Number(process.env.BCRYPT_SALT_ROUNDS ?? 12),
+  storageProvider: process.env.STORAGE_PROVIDER ?? 'LOCAL',
+  storageBucket: process.env.STORAGE_BUCKET ?? 'enterprise-blog',
+  storagePublicBaseUrl: process.env.STORAGE_PUBLIC_BASE_URL ?? '',
+  storageUploadDir: process.env.STORAGE_UPLOAD_DIR ?? '',
+  storageSignedExpiresInSeconds: Number(process.env.STORAGE_SIGNED_EXPIRES_IN_SECONDS ?? 900),
+  s3Region: process.env.S3_REGION ?? '',
+  s3Endpoint: process.env.S3_ENDPOINT ?? '',
+  s3AccessKeyId: process.env.S3_ACCESS_KEY_ID ?? '',
+  s3SecretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? '',
+  s3SessionToken: process.env.S3_SESSION_TOKEN ?? '',
+  s3ForcePathStyle: process.env.S3_FORCE_PATH_STYLE ?? 'false',
+}));

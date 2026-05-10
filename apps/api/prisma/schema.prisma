@@ -1,0 +1,603 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleCode {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+  AUTHOR
+  VISITOR
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  SCHEDULED
+  ARCHIVED
+}
+
+enum ArticleOrigin {
+  ORIGINAL
+  REPRINT
+  TRANSLATION
+}
+
+enum ContentVisibility {
+  PUBLIC
+  FOLLOWER
+  LOGGED_IN
+  PRIVATE
+  PASSWORD
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MediaType {
+  IMAGE
+  AUDIO
+  VIDEO
+  FILE
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+}
+
+enum MessageType {
+  COMMENT
+  SYSTEM
+  FOLLOW
+  SECURITY
+}
+
+model User {
+  id              String       @id @default(cuid())
+  email           String       @unique
+  username        String       @unique
+  passwordHash    String
+  nickname        String?
+  avatarUrl       String?
+  bio             String?
+  signature       String?
+  phone           String?
+  website         String?
+  location        String?
+  isAnonymous     Boolean      @default(false)
+  status          String       @default("ACTIVE")
+  lastLoginAt     DateTime?
+  lastLoginIp     String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?
+
+  roles           UserRole[]
+  posts           Article[]    @relation("AuthorArticles")
+  comments        Comment[]
+  likes           ArticleLike[]
+  favorites       Favorite[]
+  followers       Follow[]     @relation("FollowedUser")
+  following       Follow[]     @relation("FollowingUser")
+  notifications   Notification[]
+  accessLogs      AccessLog[]
+  loginLogs       LoginLog[]
+  operationLogs   OperationLog[]
+  uploadedMedia   MediaAsset[]
+}
+
+model Role {
+  id          String     @id @default(cuid())
+  code        RoleCode   @unique
+  name        String
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  name        String
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+  roles       RolePermission[]
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  user      User     @relation(fields: [userId], references: [id])
+  role      Role     @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model Category {
+  id          String      @id @default(cuid())
+  parentId    String?
+  name        String
+  slug        String      @unique
+  description String?
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+  parent      Category?   @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[]  @relation("CategoryTree")
+  articles    Article[]
+
+  @@index([parentId])
+  @@index([sortOrder])
+}
+
+model Tag {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  slug        String       @unique
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  articles    ArticleTag[]
+}
+
+model Series {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  description String?
+  coverUrl    String?
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  articles    Article[]
+}
+
+model Article {
+  id                 String            @id @default(cuid())
+  authorId           String
+  categoryId         String?
+  seriesId           String?
+  title              String
+  slug               String            @unique
+  summary            String?           @db.Text
+  contentMarkdown    String            @db.LongText
+  contentHtml        String?           @db.LongText
+  seoTitle           String?
+  seoDescription     String?           @db.Text
+  status             ArticleStatus     @default(DRAFT)
+  origin             ArticleOrigin     @default(ORIGINAL)
+  visibility         ContentVisibility @default(PUBLIC)
+  accessPasswordHash String?
+  isPinned           Boolean           @default(false)
+  isRecommended      Boolean           @default(false)
+  publishAt          DateTime?
+  scheduledAt        DateTime?
+  views              Int               @default(0)
+  likes              Int               @default(0)
+  favorites          Int               @default(0)
+  commentCount       Int               @default(0)
+  wordCount          Int               @default(0)
+  readingMinutes     Int               @default(0)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  deletedAt          DateTime?
+
+  author             User              @relation("AuthorArticles", fields: [authorId], references: [id])
+  category           Category?         @relation(fields: [categoryId], references: [id])
+  series             Series?           @relation(fields: [seriesId], references: [id])
+  tags               ArticleTag[]
+  comments           Comment[]
+  attachments        ArticleAttachment[]
+  likesByUsers       ArticleLike[]
+  favoritedByUsers   Favorite[]
+
+  @@index([authorId])
+  @@index([categoryId])
+  @@index([seriesId])
+  @@index([status])
+  @@index([visibility])
+  @@index([publishAt])
+  @@index([isPinned, isRecommended])
+}
+
+model ArticleTag {
+  id        String   @id @default(cuid())
+  articleId String
+  tagId     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  article   Article  @relation(fields: [articleId], references: [id])
+  tag       Tag      @relation(fields: [tagId], references: [id])
+
+  @@unique([articleId, tagId])
+  @@index([tagId])
+}
+
+model ArticleAttachment {
+  id          String    @id @default(cuid())
+  articleId   String
+  mediaAssetId String
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  article     Article   @relation(fields: [articleId], references: [id])
+  mediaAsset  MediaAsset @relation(fields: [mediaAssetId], references: [id])
+
+  @@index([articleId, sortOrder])
+  @@index([mediaAssetId])
+}
+
+model Comment {
+  id          String       @id @default(cuid())
+  articleId   String
+  userId      String?
+  parentId    String?
+  rootId      String?
+  content     String       @db.Text
+  images      String?      @db.Text
+  ip          String?
+  isAnonymous Boolean      @default(false)
+  isAuthor    Boolean      @default(false)
+  likes       Int          @default(0)
+  dislikes    Int          @default(0)
+  reports     Int          @default(0)
+  floor       Int          @default(0)
+  reviewState ReviewStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+
+  article     Article      @relation(fields: [articleId], references: [id])
+  user        User?        @relation(fields: [userId], references: [id])
+  parent      Comment?     @relation("CommentTree", fields: [parentId], references: [id])
+  children    Comment[]    @relation("CommentTree")
+
+  @@index([articleId, createdAt])
+  @@index([userId, createdAt])
+  @@index([ip, createdAt])
+  @@index([parentId])
+  @@index([rootId])
+  @@index([reviewState])
+}
+
+model CommentReaction {
+  id         String   @id @default(cuid())
+  commentId  String
+  userId     String?
+  ip         String?
+  action     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  @@index([commentId])
+  @@index([userId])
+}
+
+model Follow {
+  id           String   @id @default(cuid())
+  followerId   String
+  followingId  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+  follower     User     @relation("FollowingUser", fields: [followerId], references: [id])
+  following    User     @relation("FollowedUser", fields: [followingId], references: [id])
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model Favorite {
+  id         String   @id @default(cuid())
+  userId     String
+  articleId  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  user       User     @relation(fields: [userId], references: [id])
+  article    Article  @relation(fields: [articleId], references: [id])
+
+  @@unique([userId, articleId])
+  @@index([articleId])
+}
+
+model ArticleLike {
+  id         String   @id @default(cuid())
+  userId     String
+  articleId  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  user       User     @relation(fields: [userId], references: [id])
+  article    Article  @relation(fields: [articleId], references: [id])
+
+  @@unique([userId, articleId])
+  @@index([articleId])
+}
+
+model MediaAsset {
+  id             String     @id @default(cuid())
+  uploaderId     String?
+  type           MediaType
+  bucket         String?
+  objectKey      String
+  originalName   String
+  mimeType       String
+  extension      String?
+  size           BigInt
+  width          Int?
+  height         Int?
+  durationSec    Int?
+  checksum       String?
+  status         String      @default("ACTIVE")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deletedAt      DateTime?
+  uploader       User?       @relation(fields: [uploaderId], references: [id])
+  attachments    ArticleAttachment[]
+  albumItems     AlbumItem[]
+  downloadResources DownloadResource[]
+
+  @@index([uploaderId])
+  @@index([type, createdAt])
+}
+
+model Album {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  description String?
+  coverAssetId String?
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+  items       AlbumItem[]
+
+  @@index([sortOrder])
+}
+
+model AlbumItem {
+  id          String     @id @default(cuid())
+  albumId     String
+  mediaAssetId String
+  sortOrder   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+  album       Album      @relation(fields: [albumId], references: [id])
+  mediaAsset  MediaAsset @relation(fields: [mediaAssetId], references: [id])
+
+  @@unique([albumId, mediaAssetId])
+  @@index([albumId, sortOrder])
+}
+
+model DownloadResource {
+  id          String     @id @default(cuid())
+  title       String
+  description String?    @db.Text
+  mediaAssetId String
+  downloadCount Int      @default(0)
+  accessLevel String     @default("PUBLIC")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+  mediaAsset  MediaAsset @relation(fields: [mediaAssetId], references: [id])
+}
+
+model Page {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  content     String    @db.LongText
+  seoTitle    String?
+  seoDescription String? @db.Text
+  isPublished Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+}
+
+model SiteConfig {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  value       Json
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+}
+
+model FriendLink {
+  id          String       @id @default(cuid())
+  name        String
+  url         String
+  logo        String?
+  description String?
+  email       String?
+  status      ReviewStatus @default(PENDING)
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+
+  @@index([status, sortOrder])
+}
+
+model Announcement {
+  id          String    @id @default(cuid())
+  title       String
+  content     String    @db.Text
+  startsAt    DateTime?
+  endsAt      DateTime?
+  isPopup     Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+}
+
+model MessageBoard {
+  id          String       @id @default(cuid())
+  userId      String?
+  content     String       @db.Text
+  isAnonymous Boolean      @default(true)
+  status      ReviewStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+}
+
+model Notification {
+  id          String               @id @default(cuid())
+  userId      String
+  type        MessageType
+  channel     NotificationChannel
+  title       String
+  content     String               @db.Text
+  isRead      Boolean              @default(false)
+  sentAt      DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  deletedAt   DateTime?
+  user        User                 @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+}
+
+model SensitiveWord {
+  id          String    @id @default(cuid())
+  keyword     String    @unique
+  level       String    @default("BLOCK")
+  replaceWith String?
+  isEnabled   Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+}
+
+model BannedIp {
+  id          String    @id @default(cuid())
+  ip          String    @unique
+  reason      String?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+}
+
+model LoginLog {
+  id          String    @id @default(cuid())
+  userId      String?
+  username    String?
+  ip          String
+  userAgent   String?
+  deviceType  String?
+  location    String?
+  isSuccess   Boolean
+  reason      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  user        User?     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([ip, createdAt])
+}
+
+model OperationLog {
+  id          String    @id @default(cuid())
+  userId      String?
+  module      String
+  action      String
+  resourceId  String?
+  payload     Json?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  user        User?     @relation(fields: [userId], references: [id])
+
+  @@index([module, action, createdAt])
+}
+
+model AccessLog {
+  id            String    @id @default(cuid())
+  userId        String?
+  path          String
+  method        String
+  statusCode    Int
+  ip            String?
+  userAgent     String?
+  referer       String?
+  responseMs    Int?
+  region        String?
+  browser       String?
+  deviceType    String?
+  isSpider      Boolean   @default(false)
+  spiderName    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  user          User?     @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([path, createdAt])
+  @@index([isSpider, createdAt])
+}
+
+model VisitorFootprint {
+  id          String    @id @default(cuid())
+  visitorId   String
+  targetUserId String?
+  targetPath  String
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([visitorId, createdAt])
+  @@index([targetUserId, createdAt])
+}
