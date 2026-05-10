@@ -35,6 +35,39 @@ pnpm dev
 最小必填环境变量清单见：
 - [docs/env-min-required.md](./docs/env-min-required.md)
 
+## 生产环境部署（Docker Compose）
+
+1. 复制生产环境变量模板：
+
+```bash
+cp .env.prod.example .env.prod
+```
+
+2. 填写 `.env.prod` 中所有密钥配置（尤其是数据库/Redis/MinIO/JWT 密钥）。
+   该部署默认不依赖域名，使用服务器 IP 或 `localhost` 即可运行。
+
+3. 启动生产栈（构建镜像并启动）：
+
+Windows PowerShell：
+
+```powershell
+pnpm prod:up
+```
+
+macOS/Linux Bash：
+
+```bash
+pnpm prod:up:sh
+```
+
+4. 常用命令：
+
+- 查看日志：`pnpm prod:logs` / `pnpm prod:logs:sh`
+- 停止服务：`pnpm prod:down` / `pnpm prod:down:sh`
+- 仅重启不构建（PowerShell）：`pnpm prod:up:nobuild`
+
+生产编排文件：`docker-compose.prod.yml`
+
 ### 一键开发调试脚本（前端 + 本机 Nest + Docker MySQL/MinIO/Redis）
 
 Windows PowerShell：

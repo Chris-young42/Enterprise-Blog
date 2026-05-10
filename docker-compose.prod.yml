@@ -1,0 +1,98 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: enterprise-blog-mysql-prod
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-enterprise_blog}
+      MYSQL_USER: ${MYSQL_USER:-blog}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD}
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: enterprise-blog-redis-prod
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - ./data/redis:/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: enterprise-blog-minio-prod
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - ./data/minio:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/docker/api.Dockerfile
+    image: enterprise-blog-api:prod
+    container_name: enterprise-blog-api-prod
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_PREFIX: ${API_PREFIX:-api/v1}
+      APP_NAME: ${APP_NAME:-Enterprise Blog API}
+      DATABASE_URL: mysql://${MYSQL_USER:-blog}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-enterprise_blog}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-S3}
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-enterprise-blog}
+      STORAGE_PUBLIC_BASE_URL: ${STORAGE_PUBLIC_BASE_URL:-http://127.0.0.1:9000/enterprise-blog}
+      STORAGE_UPLOAD_DIR: ${STORAGE_UPLOAD_DIR:-./uploads}
+      STORAGE_SIGNED_EXPIRES_IN_SECONDS: ${STORAGE_SIGNED_EXPIRES_IN_SECONDS:-900}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_FORCE_PATH_STYLE: "true"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - ./apps/api/uploads:/app/uploads
+      - ./apps/api/backups:/app/backups
+      - ./apps/api/static-export:/app/static-export
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/docker/web.Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+    image: enterprise-blog-web:prod
+    container_name: enterprise-blog-web-prod
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-80}:80"
